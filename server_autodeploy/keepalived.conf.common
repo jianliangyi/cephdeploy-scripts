@@ -1,0 +1,9 @@
+    real_server rs_ip 80 {
+        weight 1
+        TCP_CHECK {
+            connect_timeout 10
+            delay_before_retry 3
+            connect_port 80
+        }
+    }
+

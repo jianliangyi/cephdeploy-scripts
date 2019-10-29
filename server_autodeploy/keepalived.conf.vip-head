@@ -1,0 +1,9 @@
+
+virtual_server vip 80 {
+    delay_loop 10
+    lb_algo wlc
+    lb_kind DR
+    persistence_timeout 50
+    protocol TCP
+
+

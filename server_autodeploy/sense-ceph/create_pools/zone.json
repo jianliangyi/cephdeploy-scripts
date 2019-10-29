@@ -1,0 +1,34 @@
+{
+    "name": "default",
+    "domain_root": "petreloss.meta:root",
+    "control_pool": "petreloss.control",
+    "gc_pool": "petreloss.log:gc",
+    "lc_pool": "petreloss.log:lc",
+    "log_pool": "petreloss.log",
+    "intent_log_pool": "petreloss.log:intent",
+    "usage_log_pool": "petreloss.log:usage",
+    "reshard_pool": "petreloss.log:reshard",
+    "user_keys_pool": "petreloss.meta:users.keys",
+    "user_email_pool": "petreloss.meta:users.email",
+    "user_swift_pool": "petreloss.meta:users.swift",
+    "user_uid_pool": "petreloss.meta:users.uid",
+    "system_key": {
+        "access_key": "",
+        "secret_key": ""
+    },
+    "placement_pools": [
+        {
+            "key": "default-placement",
+            "val": {
+                "index_pool": "petreloss.index",
+                "data_pool": "petreloss.data",
+                "data_extra_pool": "petreloss.non-ec",
+                "index_type": 0,
+                "compression": ""
+            }
+        }
+    ],
+    "metadata_heap": "",
+    "tier_config": [],
+    "realm_id": ""
+}

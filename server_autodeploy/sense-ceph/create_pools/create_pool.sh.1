@@ -1,0 +1,99 @@
+#!/usr/bin/bash
+#exit 0
+
+# install ceph 
+sh sense-ceph/install.sh
+ceph-deploy --overwrite-conf admin `hostname`
+
+pg_per_osd=100
+NUM_OSD=$(ceph osd ls 2> /dev/null | wc -l)
+SIZE=3
+total_ps=$(($NUM_OSD*$pg_per_osd/$SIZE))
+echo "total pgs of cluster : "$total_ps
+
+
+power2() {
+  if [ $1 -lt 1 ]; then echo 2; return; fi
+  echo "x=l($1)/l(2); scale=0; 2^((x+0.5)/1)" | bc -l
+}
+
+function pgcalc(){
+  num_pgs=$1
+  pct=$2
+  target_num=$(echo "($num_pgs*$pct)/1" | bc)
+  power2 $target_num
+}
+
+function pool_enable(){
+  app="petreloss"
+  for p in `ceph osd pool ls | grep -e $prefix -e root`
+  do
+    ceph osd pool application enable $p $app
+  done
+}
+
+function zone_init(){
+radosgw-admin realm create --rgw-realm=petrel --default
+radosgw-admin zonegroup create --rgw-zonegroup=petreloss --rgw-realm=petrel  --master --default
+radosgw-admin zone create --rgw-zone=default --rgw-zonegroup=petreloss  --master --default
+radosgw-admin zone set --rgw-zone=default  --master --default --infile zone.json
+radosgw-admin period update --commit
+}
+
+
+function health_check()
+{
+   status=$(ceph health)
+   while [ $status != "HEALTH_OK" ]
+   do
+     echo "waiting for ceph becoming health ..."
+     sleep 1s
+     status=$(ceph health)
+   done
+}
+
+function rgw_pool(){
+num_pgs=$(power2 $1)
+echo "total num of rgw pgs :"$num_pgs
+other_num=$(pgcalc $num_pgs 0.05)
+data_num=$(pgcalc $num_pgs 0.85)
+index_num=$(pgcalc $num_pgs 0.1)
+
+echo $data_num $index_num $other_num
+
+#: '
+
+prefix="petreloss"
+ruleset="replicated_rule"
+ceph osd pool create $prefix.index $index_num $index_num    replicated $ruleset
+ceph osd pool create $prefix.data $data_num $data_num  replicated $ruleset
+ceph osd pool create .rgw.root $other_num $other_num replicated $ruleset
+ceph osd pool create $prefix.control $other_num $other_num replicated $ruleset
+ceph osd pool create $prefix.meta $other_num $other_num replicated $ruleset
+ceph osd pool create $prefix.log $other_num $other_num replicated $ruleset
+ceph osd pool create $prefix.non-ec $other_num $other_num replicated $ruleset
+pool_enable
+sleep 1m
+zone_init
+}
+
+function rbd_pool(){
+num_pgs=$(power2 $1)
+echo "total num of rbd pgs :"$num_pgs
+ceph osd pool create rbd $num_pgs $num_pgs
+}
+
+function agent_pool(){
+num_pgs=$(power2 $1)
+echo "total num of agent pgs :"$num_pgs
+#ceph osd pool create SenseAgentPool $num_pgs $num_pgs
+}
+
+rgw_total=$(echo "($total_ps*1)/1" | bc)
+rgw_pool $rgw_total
+
+rbd_total=$(echo "($total_ps*0.3)/1" | bc)
+#rbd_pool $rbd_total
+
+agent_total=$(echo "($total_ps*0.3)/1" | bc)
+#agent_pool $agent_total
